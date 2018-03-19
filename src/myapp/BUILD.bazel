@@ -1,0 +1,51 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@build_bazel_rules_typescript//:defs.bzl", "ts_devserver", "ts_library")
+
+ts_library(
+    name = "myapp",
+    srcs = ["main.ts"],
+    tsconfig = "//:tsconfig.json",
+    deps = [
+        "//src/myapp/myappmodule",
+    ]
+)
+
+genrule(
+    name = "zone.js",
+    srcs = ["//:node_modules/zone.js/dist/zone.min.js"],
+    outs = ["zone.min.js"],
+    cmd = "cp $< $@",
+)
+
+filegroup(
+    name = "static_files",
+    srcs = [
+        "index.html",
+        ":zone.js",
+    ]
+)
+
+ts_devserver(
+    name = "devserver",
+    entry_module = "angular_bazel_bug/src/myapp/main",
+    scripts = ["//:angular_bundles"],
+    serving_path = "/bundle.min.js",
+    static_files = [":static_files"],
+    deps = [":myapp"],
+)
+
+load("@build_bazel_rules_nodejs//:defs.bzl", "rollup_bundle", "nodejs_binary")
+
+rollup_bundle(
+    name = "bundle",
+    entry_point = "src/myapp/main",
+    deps = [":myapp"],
+)
+
+nodejs_binary(
+    name = "prodserver",
+    args = ["./src/myapp"],
+    data = [":static_files", ":bundle"],
+    entry_point = "http-server/bin/http-server",
+)
